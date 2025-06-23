@@ -1,0 +1,9 @@
+## Interface: 110107
+## Title:|cffd6266cFastQuestAccept|r
+## Notes: Automatisches Annehmen und Abgeben von Quests mit lokalisierbaren Einstellungen.
+## Author: BloodDragon2580
+## Version: 1.0
+## IconTexture: Interface\AddOns\FastQuestAccept\Media\Texture\logo
+## SavedVariables: FastQuestAcceptDB
+
+FastQuestAccept.lua

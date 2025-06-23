@@ -1,27 +1,29 @@
-##Deutsch
-Fast Quest Accept erleichtert dir den Quest-Alltag in World of Warcraft. Das Addon:
+# Fast Quest Accept
 
-Nimmt Quests automatisch an
+**Fast Quest Accept** simplifies your questing experience in World of Warcraft.
 
-Gibt abgeschlossene Quests automatisch ab
+## ✅ Features
 
-Akzeptiert automatische Pop-up-Quests
+- Automatically picks up quests  
+- Automatically turns in completed quests  
+- Accepts pop-up quests  
+- Skips NPC dialogs if there's only one option  
+- All features are individually configurable in the Interface Options  
+- Fully compatible with **Dragonflight** and **The War Within**  
+- Multilingual support (currently: English, German, French)
 
-Überspringt NPC-Dialoge, wenn es nur eine Option gibt
+---
 
-Jeder dieser Punkte kann in den Interface-Optionen separat ein- oder ausgeschaltet werden.
-Es unterstützt mehrere Sprachen und ist vollständig mit Dragonflight / The War Within kompatibel.
+## 🌍 Deutsch
 
-##Englisch
-Fast Quest Accept simplifies your questing experience in World of Warcraft. The addon:
+**Fast Quest Accept** erleichtert dir das Questen in World of Warcraft.
 
-Automatically picks up quests
+### ✅ Funktionen
 
-Automatically turns in completed quests
-
-Accepts pop-up quests without prompts
-
-Skips NPC dialogs if there's only one option
-
-All features can be enabled or disabled individually via the in-game interface options.
-The addon supports multiple languages and is fully compatible with Dragonflight and The War Within.
+- Nimmt Quests automatisch an  
+- Gibt abgeschlossene Quests automatisch ab  
+- Akzeptiert Pop-up-Quests automatisch  
+- Überspringt NPC-Dialoge mit nur einer Option  
+- Alles einzeln ein-/ausschaltbar über das Interface-Menü  
+- Kompatibel mit **Dragonflight** und **The War Within**  
+- Mehrsprachiger Support (derzeit: Deutsch, Englisch, Französisch)

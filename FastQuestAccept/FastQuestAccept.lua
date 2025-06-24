@@ -4,32 +4,28 @@ local addonName = ...
 
 -- Lokalisierung
 local L = {}
-
 local locale = GetLocale()
 if locale == "deDE" then
-    L["title"] = "Fast Quest Accept"
-    L["desc"] = "Fast Quest Accept Einstellungen"
-    L["pickup"] = "Quests automatisch annehmen"
-    L["deliver"] = "Quests automatisch abgeben"
-    L["popup"] = "Pop-up-Quests automatisch akzeptieren"
-    L["skipnpc"] = "NPC-Dialoge überspringen (nur 1 Option)"
+    L["title"]    = "Fast Quest Accept"
+    L["desc"]     = "Fast Quest Accept Einstellungen"
+    L["pickup"]   = "Quests automatisch annehmen"
+    L["deliver"]  = "Quests automatisch abgeben"
+    L["popup"]    = "Pop-up-Quests automatisch akzeptieren"
 elseif locale == "frFR" then
-    L["title"] = "Acceptation rapide de quêtes"
-    L["desc"] = "Paramètres d'acceptation rapide des quêtes"
-    L["pickup"] = "Accepter automatiquement les quêtes"
-    L["deliver"] = "Rendre automatiquement les quêtes"
-    L["popup"] = "Accepter automatiquement les quêtes pop-up"
-    L["skipnpc"] = "Ignorer les PNJ avec une seule option"
+    L["title"]    = "Acceptation rapide de quêtes"
+    L["desc"]     = "Paramètres d'acceptation rapide des quêtes"
+    L["pickup"]   = "Accepter automatiquement les quêtes"
+    L["deliver"]  = "Rendre automatiquement les quêtes"
+    L["popup"]    = "Accepter automatiquement les quêtes pop-up"
 else
-    L["title"] = "Fast Quest Accept"
-    L["desc"] = "Fast Quest Accept Settings"
-    L["pickup"] = "Automatically pick up quests"
-    L["deliver"] = "Automatically deliver quests"
-    L["popup"] = "Automatically accept pop-up quests"
-    L["skipnpc"] = "Skip NPC dialogue with one option"
+    L["title"]    = "Fast Quest Accept"
+    L["desc"]     = "Fast Quest Accept Settings"
+    L["pickup"]   = "Automatically pick up quests"
+    L["deliver"]  = "Automatically deliver quests"
+    L["popup"]    = "Automatically accept pop-up quests"
 end
 
--- Fallback für Retail-Settings-API
+-- Fallback Retail-Settings-API
 local InterfaceOptions_AddCategory = InterfaceOptions_AddCategory
 if not InterfaceOptions_AddCategory then
     InterfaceOptions_AddCategory = function(frame)
@@ -40,22 +36,20 @@ if not InterfaceOptions_AddCategory then
     end
 end
 
--- Standardwerte
+-- Default-Einstellungen
 local defaults = {
-    autoPickup = true,
+    autoPickup  = true,
     autoDeliver = true,
-    autoPopup = true,
-    autoSkipNPC = true,
+    autoPopup   = true,
 }
 
--- Frame
+-- Haupt-Frame
 local f = CreateFrame("Frame", "FastQuestAcceptFrame")
 f:RegisterEvent("ADDON_LOADED")
 
--- Event-Handler
 f:SetScript("OnEvent", function(self, event, arg1)
     if event == "ADDON_LOADED" and arg1 == addonName then
-        -- SavedVariables
+        -- SavedVariables init
         FastQuestAcceptDB = FastQuestAcceptDB or {}
         for k, v in pairs(defaults) do
             if FastQuestAcceptDB[k] == nil then
@@ -63,14 +57,12 @@ f:SetScript("OnEvent", function(self, event, arg1)
             end
         end
 
-        -- Options-Panel
+        -- Interface-Options
         local panel = CreateFrame("Frame", "FastQuestAcceptOptionsPanel", InterfaceOptionsFramePanelContainer)
         panel.name = L["title"]
-
         local title = panel:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
         title:SetPoint("TOPLEFT", 16, -16)
         title:SetText(L["desc"])
-
         local function CreateCheckbox(label, key, yOffset)
             local cb = CreateFrame("CheckButton", nil, panel, "InterfaceOptionsCheckButtonTemplate")
             cb:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, yOffset)
@@ -80,60 +72,62 @@ f:SetScript("OnEvent", function(self, event, arg1)
                 FastQuestAcceptDB[key] = self:GetChecked()
             end)
         end
-
-        CreateCheckbox(L["pickup"],   "autoPickup",  -16)
-        CreateCheckbox(L["deliver"],  "autoDeliver", -46)
-        CreateCheckbox(L["popup"],    "autoPopup",   -76)
-        CreateCheckbox(L["skipnpc"],  "autoSkipNPC", -106)
-
+        CreateCheckbox(L["pickup"],  "autoPickup",  -16)
+        CreateCheckbox(L["deliver"], "autoDeliver", -46)
+        CreateCheckbox(L["popup"],   "autoPopup",   -76)
         panel:Hide()
         InterfaceOptions_AddCategory(panel)
 
-        -- Weitere Events aktivieren
+        -- Registriere Quest-Events
         f:RegisterEvent("QUEST_DETAIL")
         f:RegisterEvent("QUEST_PROGRESS")
         f:RegisterEvent("QUEST_COMPLETE")
         f:RegisterEvent("GOSSIP_SHOW")
         f:RegisterEvent("QUEST_ACCEPT_CONFIRM")
+        return
     end
 
-    -- Funktionalität
+    -- QUEST_DETAIL: immer annehmen
     if event == "QUEST_DETAIL" and FastQuestAcceptDB.autoPickup then
         AcceptQuest()
 
+    -- QUEST_PROGRESS: abgeben, wenn abschließbar
     elseif event == "QUEST_PROGRESS" and FastQuestAcceptDB.autoDeliver then
         if IsQuestCompletable() then
             CompleteQuest()
         end
 
+    -- QUEST_COMPLETE: Belohnung ziehen
     elseif event == "QUEST_COMPLETE" and FastQuestAcceptDB.autoDeliver then
-        if GetNumQuestChoices() == 0 then
-            GetQuestReward(1)
-        elseif GetNumQuestChoices() == 1 then
+        local numChoices = GetNumQuestChoices()
+        if numChoices == 0 or numChoices == 1 then
             GetQuestReward(1)
         end
 
+    -- QUEST_ACCEPT_CONFIRM: Pop-ups
     elseif event == "QUEST_ACCEPT_CONFIRM" and FastQuestAcceptDB.autoPopup then
         ConfirmAcceptQuest()
 
+    -- GOSSIP_SHOW: sequentiell abarbeiten
     elseif event == "GOSSIP_SHOW" then
-        local options = C_GossipInfo.GetOptions()
+        local available = C_GossipInfo.GetAvailableQuests()
+        local active    = C_GossipInfo.GetActiveQuests()
 
-        if FastQuestAcceptDB.autoSkipNPC and #options == 1 then
-            C_GossipInfo.SelectOption(options[1].gossipOptionID)
-        end
-
-        if FastQuestAcceptDB.autoPickup then
-            for _, quest in ipairs(C_GossipInfo.GetAvailableQuests()) do
-                C_GossipInfo.SelectAvailableQuest(quest.questID)
+        -- 1) Abgabe: wenn ≥1 complete
+        if FastQuestAcceptDB.autoDeliver then
+            for _, q in ipairs(active) do
+                if q.isComplete then
+                    C_GossipInfo.SelectActiveQuest(q.questID)
+                    return
+                end
             end
         end
 
-        if FastQuestAcceptDB.autoDeliver then
-            for _, quest in ipairs(C_GossipInfo.GetActiveQuests()) do
-                if quest.isComplete then
-                    C_GossipInfo.SelectActiveQuest(quest.questID)
-                end
+        -- 2) Annahme: wenn ≥1 new
+        if FastQuestAcceptDB.autoPickup then
+            if #available > 0 then
+                C_GossipInfo.SelectAvailableQuest(available[1].questID)
+                return
             end
         end
     end

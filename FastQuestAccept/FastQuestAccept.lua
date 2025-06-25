@@ -98,6 +98,7 @@ f:SetScript("OnEvent", function(self, event, arg1)
         f:RegisterEvent("QUEST_PROGRESS")
         f:RegisterEvent("QUEST_COMPLETE")
         f:RegisterEvent("GOSSIP_SHOW")
+        f:RegisterEvent("QUEST_GREETING")
         f:RegisterEvent("QUEST_ACCEPT_CONFIRM")
         return
     end
@@ -115,9 +116,7 @@ f:SetScript("OnEvent", function(self, event, arg1)
     -- QUEST_COMPLETE
     elseif event == "QUEST_COMPLETE" and FastQuestAcceptDB.autoDeliver then
         local numChoices = GetNumQuestChoices()
-        if numChoices == 0 then
-            GetQuestReward(1)
-        elseif numChoices == 1 then
+        if numChoices == 0 or numChoices == 1 then
             GetQuestReward(1)
         elseif FastQuestAcceptDB.autoBestReward then
             local bestIndex, bestValue = 1, 0
@@ -143,23 +142,82 @@ f:SetScript("OnEvent", function(self, event, arg1)
 
     -- GOSSIP_SHOW
     elseif event == "GOSSIP_SHOW" then
-        local available = C_GossipInfo.GetAvailableQuests()
-        local active    = C_GossipInfo.GetActiveQuests()
+        local isRetail = C_GossipInfo and C_GossipInfo.GetAvailableQuests
 
-        -- 1) Abgabe: erste complete Quest
+        if isRetail then
+            local available = C_GossipInfo.GetAvailableQuests()
+            local active = C_GossipInfo.GetActiveQuests()
+
+            if FastQuestAcceptDB.autoDeliver then
+                for _, q in ipairs(active) do
+                    if q.isComplete then
+                        C_GossipInfo.SelectActiveQuest(q.questID)
+                    end
+                end
+            end
+
+            if FastQuestAcceptDB.autoPickup and #available > 0 then
+                local index = 1
+                local function pickNext()
+                    if available[index] then
+                        C_GossipInfo.SelectAvailableQuest(available[index].questID)
+                        index = index + 1
+                        if available[index] then
+                            C_Timer.After(0.4, pickNext)
+                        end
+                    end
+                end
+                C_Timer.After(0.2, pickNext)
+            end
+        else
+            local available = { GetGossipAvailableQuests() }
+            local active = { GetGossipActiveQuests() }
+
+            if FastQuestAcceptDB.autoDeliver then
+                for i = 1, #active, 6 do
+                    if active[i+4] then
+                        SelectGossipActiveQuest((i+5)/6)
+                    end
+                end
+            end
+
+            if FastQuestAcceptDB.autoPickup then
+                local count = #available / 6
+                local index = 1
+                local function pickNext()
+                    if index <= count then
+                        SelectGossipAvailableQuest(index)
+                        index = index + 1
+                        C_Timer.After(0.4, pickNext)
+                    end
+                end
+                C_Timer.After(0.2, pickNext)
+            end
+        end
+
+    -- QUEST_GREETING (ältere NPCs ohne Gossip)
+    elseif event == "QUEST_GREETING" then
         if FastQuestAcceptDB.autoDeliver then
-            for _, q in ipairs(active) do
-                if q.isComplete then
-                    C_GossipInfo.SelectActiveQuest(q.questID)
-                    return
+            local numActive = GetNumActiveQuests()
+            for i = 1, numActive do
+                local _, isComplete = GetActiveTitle(i)
+                if isComplete then
+                    SelectActiveQuest(i)
                 end
             end
         end
 
-        -- 2) Annahme: erste neue Quest
-        if FastQuestAcceptDB.autoPickup and #available > 0 then
-            C_GossipInfo.SelectAvailableQuest(available[1].questID)
-            return
+        if FastQuestAcceptDB.autoPickup then
+            local numAvailable = GetNumAvailableQuests()
+            local index = 1
+            local function pickNext()
+                if index <= numAvailable then
+                    SelectAvailableQuest(index)
+                    index = index + 1
+                    C_Timer.After(0.4, pickNext)
+                end
+            end
+            C_Timer.After(0.2, pickNext)
         end
     end
 end)

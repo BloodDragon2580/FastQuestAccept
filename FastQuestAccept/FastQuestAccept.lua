@@ -17,6 +17,12 @@ elseif locale == "frFR" then
     L["pickup"]   = "Accepter automatiquement les quêtes"
     L["deliver"]  = "Rendre automatiquement les quêtes"
     L["popup"]    = "Accepter automatiquement les quêtes pop-up"
+elseif locale == "ruRU" then
+    L["title"]    = "Быстрое принятие заданий"
+    L["desc"]     = "Настройки Быстрого принятия заданий"
+    L["pickup"]   = "Автоматически принимать задания"
+    L["deliver"]  = "Автоматически сдавать задания"
+    L["popup"]    = "Автоматически принимать всплывающие задания"
 else
     L["title"]    = "Fast Quest Accept"
     L["desc"]     = "Fast Quest Accept Settings"

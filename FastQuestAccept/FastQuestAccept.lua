@@ -123,8 +123,9 @@ f:SetScript("OnEvent", function(self, event, arg1)
             for i = 1, numChoices do
                 local link = GetQuestItemLink("choice", i)
                 if link then
-                    local _, _, _, _, _, _, _, _, stackSize, _, sellPrice = GetItemInfo(link)
-                    local total = (sellPrice or 0) * (stackSize or 1)
+                    -- Korrekte Indizes: maxStack (8.), sellPrice (11.)
+                    local _, _, _, _, _, _, _, maxStack, _, _, sellPrice = GetItemInfo(link)
+                    local total = (sellPrice or 0) * (maxStack or 1)
                     if total > bestValue then
                         bestValue = total
                         bestIndex = i
@@ -160,7 +161,7 @@ f:SetScript("OnEvent", function(self, event, arg1)
                 local index = 1
                 local function pickNext()
                     if available[index] then
-                        C_GossipInfo.SelectAvailableQuest(available[index].questID)
+                        C_GossipInfo.SelectAvailableQuestByIndex(index)
                         index = index + 1
                         if available[index] then
                             C_Timer.After(0.4, pickNext)

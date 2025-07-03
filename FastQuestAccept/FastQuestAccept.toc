@@ -3,7 +3,7 @@
 ## Notes: Automatisches Annehmen und Abgeben von Quests mit lokalisierbaren Einstellungen.
 ## Notes-ruRU: Аддон, позволяющий автоматически принимать и сдавать квесты.
 ## Author: BloodDragon2580
-## Version: 1.6
+## Version: 1.7
 ## IconTexture: Interface\AddOns\FastQuestAccept\Media\Texture\logo
 ## SavedVariables: FastQuestAcceptDB
 

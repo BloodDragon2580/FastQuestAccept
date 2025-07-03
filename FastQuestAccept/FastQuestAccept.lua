@@ -6,33 +6,33 @@ local addonName = ...
 local L = {}
 local locale = GetLocale()
 if locale == "deDE" then
-    L["title"]         = "Fast Quest Accept"
-    L["desc"]          = "Fast Quest Accept Einstellungen"
-    L["pickup"]        = "Quests automatisch annehmen"
-    L["deliver"]       = "Quests automatisch abgeben"
-    L["popup"]         = "Pop-up-Quests automatisch akzeptieren"
-    L["bestreward"]    = "Beste Quest-Belohnung automatisch wählen"
+    L["title"]      = "Fast Quest Accept"
+    L["desc"]       = "Fast Quest Accept Einstellungen"
+    L["pickup"]     = "Quests automatisch annehmen"
+    L["deliver"]    = "Quests automatisch abgeben"
+    L["popup"]      = "Pop-up-Quests automatisch akzeptieren"
+    L["bestreward"] = "Beste Quest-Belohnung automatisch wählen"
 elseif locale == "frFR" then
-    L["title"]         = "Acceptation rapide de quêtes"
-    L["desc"]          = "Paramètres d'acceptation rapide des quêtes"
-    L["pickup"]        = "Accepter automatiquement les quêtes"
-    L["deliver"]       = "Rendre automatiquement les quêtes"
-    L["popup"]         = "Accepter automatiquement les quêtes pop-up"
-    L["bestreward"]    = "Choisir automatiquement la meilleure récompense"
+    L["title"]      = "Acceptation rapide de quêtes"
+    L["desc"]       = "Paramètres d'acceptation rapide des quêtes"
+    L["pickup"]     = "Accepter automatiquement les quêtes"
+    L["deliver"]    = "Rendre automatiquement les quêtes"
+    L["popup"]      = "Accepter automatiquement les quêtes pop-up"
+    L["bestreward"] = "Choisir automatiquement la meilleure récompense"
 elseif locale == "ruRU" then
-    L["title"]         = "Быстрое принятие квестов"
-    L["desc"]          = "Настройки Быстрого принятия квестов"
-    L["pickup"]        = "Автоматически принимать квесты"
-    L["deliver"]       = "Автоматически сдавать квесты"
-    L["popup"]         = "Автоматически принимать всплывающие квесты"
-    L["bestreward"]    = "Автоматически выбирать лучшую награду за квест"
+    L["title"]      = "Быстрое принятие квестов"
+    L["desc"]       = "Настройки Быстрого принятия квестов"
+    L["pickup"]     = "Автоматически принимать квесты"
+    L["deliver"]    = "Автоматически сдавать квесты"
+    L["popup"]      = "Автоматически принимать всплывающие квесты"
+    L["bestreward"] = "Автоматически выбирать лучшую награду за квест"
 else
-    L["title"]         = "Fast Quest Accept"
-    L["desc"]          = "Fast Quest Accept Settings"
-    L["pickup"]        = "Automatically pick up quests"
-    L["deliver"]       = "Automatically deliver quests"
-    L["popup"]         = "Automatically accept pop-up quests"
-    L["bestreward"]    = "Automatically choose best quest reward"
+    L["title"]      = "Fast Quest Accept"
+    L["desc"]       = "Fast Quest Accept Settings"
+    L["pickup"]     = "Automatically pick up quests"
+    L["deliver"]    = "Automatically deliver quests"
+    L["popup"]      = "Automatically accept pop-up quests"
+    L["bestreward"] = "Automatically choose best quest reward"
 end
 
 -- Fallback für Retail-Settings-API
@@ -88,7 +88,7 @@ f:SetScript("OnEvent", function(self, event, arg1)
         CreateCheckbox(L["pickup"],     "autoPickup",     -16)
         CreateCheckbox(L["deliver"],    "autoDeliver",    -46)
         CreateCheckbox(L["popup"],      "autoPopup",      -76)
-        CreateCheckbox(L["bestreward"], "autoBestReward",-106)
+        CreateCheckbox(L["bestreward"], "autoBestReward", -106)
 
         panel:Hide()
         InterfaceOptions_AddCategory(panel)
@@ -123,7 +123,6 @@ f:SetScript("OnEvent", function(self, event, arg1)
             for i = 1, numChoices do
                 local link = GetQuestItemLink("choice", i)
                 if link then
-                    -- Korrekte Indizes: maxStack (8.), sellPrice (11.)
                     local _, _, _, _, _, _, _, maxStack, _, _, sellPrice = GetItemInfo(link)
                     local total = (sellPrice or 0) * (maxStack or 1)
                     if total > bestValue then
@@ -143,57 +142,32 @@ f:SetScript("OnEvent", function(self, event, arg1)
 
     -- GOSSIP_SHOW
     elseif event == "GOSSIP_SHOW" then
-        local isRetail = C_GossipInfo and C_GossipInfo.GetAvailableQuests
+        local available = C_GossipInfo.GetAvailableQuests()
+        local active    = C_GossipInfo.GetActiveQuests()
 
-        if isRetail then
-            local available = C_GossipInfo.GetAvailableQuests()
-            local active = C_GossipInfo.GetActiveQuests()
-
-            if FastQuestAcceptDB.autoDeliver then
-                for _, q in ipairs(active) do
-                    if q.isComplete then
-                        C_GossipInfo.SelectActiveQuest(q.questID)
-                    end
+        -- 1) Alle kompletten Quests abgeben
+        if FastQuestAcceptDB.autoDeliver then
+            for _, q in ipairs(active) do
+                if q.isComplete then
+                    C_GossipInfo.SelectActiveQuest(q.questID)
                 end
             end
+        end
 
-            if FastQuestAcceptDB.autoPickup and #available > 0 then
-                local index = 1
-                local function pickNext()
+        -- 2) Alle neuen Quests nacheinander mit Delay annehmen
+        if FastQuestAcceptDB.autoPickup and #available > 0 then
+            local index = 1
+            local function pickNext()
+                local q = available[index]
+                if q then
+                    C_GossipInfo.SelectAvailableQuest(q.questID)
+                    index = index + 1
                     if available[index] then
-                        C_GossipInfo.SelectAvailableQuestByIndex(index)
-                        index = index + 1
-                        if available[index] then
-                            C_Timer.After(0.4, pickNext)
-                        end
-                    end
-                end
-                C_Timer.After(0.2, pickNext)
-            end
-        else
-            local available = { GetGossipAvailableQuests() }
-            local active = { GetGossipActiveQuests() }
-
-            if FastQuestAcceptDB.autoDeliver then
-                for i = 1, #active, 6 do
-                    if active[i+4] then
-                        SelectGossipActiveQuest((i+5)/6)
-                    end
-                end
-            end
-
-            if FastQuestAcceptDB.autoPickup then
-                local count = #available / 6
-                local index = 1
-                local function pickNext()
-                    if index <= count then
-                        SelectGossipAvailableQuest(index)
-                        index = index + 1
                         C_Timer.After(0.4, pickNext)
                     end
                 end
-                C_Timer.After(0.2, pickNext)
             end
+            C_Timer.After(0.1, pickNext)
         end
 
     -- QUEST_GREETING (ältere NPCs ohne Gossip)
@@ -218,7 +192,7 @@ f:SetScript("OnEvent", function(self, event, arg1)
                     C_Timer.After(0.4, pickNext)
                 end
             end
-            C_Timer.After(0.2, pickNext)
+            C_Timer.After(0.1, pickNext)
         end
     end
 end)

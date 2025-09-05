@@ -116,24 +116,38 @@ f:SetScript("OnEvent", function(self, event, arg1)
     -- QUEST_COMPLETE
     elseif event == "QUEST_COMPLETE" and FastQuestAcceptDB.autoDeliver then
         local numChoices = GetNumQuestChoices()
+
         if numChoices == 0 or numChoices == 1 then
             GetQuestReward(1)
         elseif FastQuestAcceptDB.autoBestReward then
-            local bestIndex, bestValue = 1, 0
+            local bestIndex, bestValue = nil, 0
+            local foundAnItem = false
+
             for i = 1, numChoices do
                 local link = GetQuestItemLink("choice", i)
-                if link then
-                    local _, _, _, _, _, _, _, maxStack, _, _, sellPrice = GetItemInfo(link)
-                    local total = (sellPrice or 0) * (maxStack or 1)
-                    if total > bestValue then
-                        bestValue = total
+                local name, texture, numItems, quality, isUsable, itemID = GetQuestItemInfo("choice", i)
+                if link and itemID and itemID > 0 then
+                    local _, _, _, _, _, _, _, stackCount, _, _, sellPrice = GetItemInfo(link)
+                    local price = (sellPrice or 0) * (stackCount or numItems or 1)
+                    if price > bestValue then
+                        bestValue = price
                         bestIndex = i
                     end
+                    foundAnItem = true
                 end
             end
-            GetQuestReward(bestIndex)
+
+            if not foundAnItem then
+                -- Nur Ruf-Belohnungen – nichts automatisch wählen
+                return
+            elseif bestIndex then
+                GetQuestReward(bestIndex)
+            else
+                GetQuestReward(1) -- Fallback
+            end
         else
-            GetQuestReward(1)
+            -- AutoBestReward deaktiviert → manuelle Auswahl
+            return
         end
 
     -- QUEST_ACCEPT_CONFIRM

@@ -121,29 +121,34 @@ f:SetScript("OnEvent", function(self, event, arg1)
             GetQuestReward(1)
         elseif FastQuestAcceptDB.autoBestReward then
             local bestIndex, bestValue = nil, 0
-            local foundAnItem = false
+            local foundValuableItem = false
 
             for i = 1, numChoices do
                 local link = GetQuestItemLink("choice", i)
                 local name, texture, numItems, quality, isUsable, itemID = GetQuestItemInfo("choice", i)
+
                 if link and itemID and itemID > 0 then
                     local _, _, _, _, _, _, _, stackCount, _, _, sellPrice = GetItemInfo(link)
-                    local price = (sellPrice or 0) * (stackCount or numItems or 1)
-                    if price > bestValue then
-                        bestValue = price
-                        bestIndex = i
+
+                    -- Nur Items mit Verkaufswert berücksichtigen
+                    if sellPrice and sellPrice > 0 then
+                        foundValuableItem = true
+                        local total = sellPrice * (stackCount or numItems or 1)
+                        if total > bestValue then
+                            bestValue = total
+                            bestIndex = i
+                        end
                     end
-                    foundAnItem = true
                 end
             end
 
-            if not foundAnItem then
-                -- Nur Ruf-Belohnungen – nichts automatisch wählen
+            if not foundValuableItem then
+                -- Nur Ruf-/Währungsbelohnungen → Spieler muss manuell wählen
                 return
             elseif bestIndex then
                 GetQuestReward(bestIndex)
             else
-                GetQuestReward(1) -- Fallback
+                GetQuestReward(1)
             end
         else
             -- AutoBestReward deaktiviert → manuelle Auswahl

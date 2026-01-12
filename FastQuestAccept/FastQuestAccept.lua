@@ -60,7 +60,6 @@ local defaults = {
 }
 
 -- SavedVariables: Per Character (via .toc SavedVariablesPerCharacter)
--- -> FastQuestAcceptDB ist nun pro Charakter getrennt.
 local function InitDB()
 	FastQuestAcceptDB = FastQuestAcceptDB or {}
 	for k, v in pairs(defaults) do
@@ -96,7 +95,6 @@ local function CreateOptionsPanel()
 		cb:SetPoint("TOPLEFT", hint, "BOTTOMLEFT", 0, yOffset)
 		cb.Text:SetText(label)
 
-		-- Aktualisieren, wenn Panel geöffnet wird (damit es immer korrekt ist)
 		cb:SetScript("OnShow", function(self)
 			self:SetChecked(FastQuestAcceptDB and FastQuestAcceptDB[key])
 		end)
@@ -104,6 +102,7 @@ local function CreateOptionsPanel()
 		cb:SetScript("OnClick", function(self)
 			FastQuestAcceptDB[key] = self:GetChecked() and true or false
 		end)
+
 		return cb
 	end
 
@@ -125,32 +124,128 @@ f:SetScript("OnEvent", function(_, event, arg1)
 	end
 end)
 
--- Helper: Best reward by vendor sell price
+-- Helper: Sell price for quest choice item
+local function GetChoiceSellPrice(i)
+	local _, _, _, _, _, itemID = GetQuestItemInfo("choice", i)
+	if not itemID then return 0 end
+	return select(11, GetItemInfo(itemID)) or 0
+end
+
+-- =========================================================
+-- ✅ NEU: Ruf/Ruhm Token zuverlässig erkennen (Tooltip-Scan)
+-- =========================================================
+local function TooltipHasAnyKeyword(tooltipData, keywords)
+	if not tooltipData or not tooltipData.lines then return false end
+	for _, line in ipairs(tooltipData.lines) do
+		local txt = ((line.leftText or "") .. " " .. (line.rightText or "")):lower()
+		for _, kw in ipairs(keywords) do
+			if txt:find(kw, 1, true) then
+				return true
+			end
+		end
+	end
+	return false
+end
+
+local REP_KEYWORDS = {
+	-- de
+	"ruf", "ruhm",
+	-- en
+	"reputation", "renown",
+	-- fr
+	"réputation", "renommée",
+	-- ru (teilwörter, damit es flexibler ist)
+	"репута", "известност",
+}
+
+local function IsReputationOrRenownChoice(i)
+	local _, _, _, _, _, itemID = GetQuestItemInfo("choice", i)
+
+	-- Wenn es kein Item ist (z.B. Währung/sonstiges), lieber NICHT auto-picken
+	if not itemID then
+		return true
+	end
+
+	-- Retail: TooltipInfo API
+	if C_TooltipInfo and C_TooltipInfo.GetQuestRewardItem then
+		local tooltipData = C_TooltipInfo.GetQuestRewardItem("choice", i)
+		if TooltipHasAnyKeyword(tooltipData, REP_KEYWORDS) then
+			return true
+		end
+	end
+
+	return false
+end
+
+local function AllChoicesAreReputationOrRenown()
+	local num = GetNumQuestChoices() or 0
+	if num <= 0 then return false end
+	for i = 1, num do
+		if not IsReputationOrRenownChoice(i) then
+			return false
+		end
+	end
+	return true
+end
+
+-- WICHTIG: Ruf-Token/0-Wert Auswahlbelohnungen erkennen
+-- Wenn es Choices gibt UND ALLE Choices 0 Vendor-Wert haben -> NICHT automatisch abschließen.
+local function ChoicesAreAllZeroValue()
+	local num = GetNumQuestChoices() or 0
+	if num <= 0 then return false end
+
+	for i = 1, num do
+		local sellPrice = GetChoiceSellPrice(i)
+		if sellPrice and sellPrice > 0 then
+			return false
+		end
+	end
+	return true
+end
+
+-- Optional: Quests die wirklich "nur Ruf" geben (keine Money/Items/Choices) nicht auto-abschließen.
+local function QuestHasNoTangibleRewards()
+	local numChoices = GetNumQuestChoices() or 0
+	if numChoices > 0 then return false end
+
+	local money = GetQuestMoneyToGet and (GetQuestMoneyToGet() or 0) or 0
+	if money > 0 then return false end
+
+	local numRewards = (GetNumQuestRewards and (GetNumQuestRewards() or 0)) or 0
+	if numRewards > 0 then
+		for i = 1, numRewards do
+			local _, _, _, _, _, itemID = GetQuestItemInfo("reward", i)
+			if itemID then
+				return false
+			end
+		end
+	end
+
+	-- keine choices, kein geld, keine items -> sehr wahrscheinlich "nur ruf"
+	return true
+end
+
+-- Helper: Best reward by vendor sell price (Choices)
+-- ✅ Update: Ruf/Ruhm-Choices werden NIE automatisch gewählt
 local function GetBestRewardChoiceIndex()
 	local num = GetNumQuestChoices() or 0
-	if num <= 1 then return nil end
+	if num <= 0 then return nil end
 
 	local bestIndex, bestPrice = nil, 0
 
 	for i = 1, num do
-		local _, _, _, _, _, itemID = GetQuestItemInfo("choice", i)
-		local sellPrice = 0
-
-		if itemID then
-			-- sellPrice = 11th return value of GetItemInfo
-			sellPrice = select(11, GetItemInfo(itemID)) or 0
-		end
-
-		if sellPrice > bestPrice then
-			bestPrice = sellPrice
-			bestIndex = i
+		-- Ruf/Ruhm niemals automatisch wählen
+		if not IsReputationOrRenownChoice(i) then
+			local sellPrice = GetChoiceSellPrice(i)
+			if sellPrice > bestPrice then
+				bestPrice = sellPrice
+				bestIndex = i
+			end
 		end
 	end
 
-	-- WICHTIG:
-	-- Wenn alle Auswahlbelohnungen 0 Wert haben (typisch: Ruf-Token),
-	-- NICHT automatisch auswählen -> Spieler soll selbst wählen.
-	if bestPrice <= 0 then
+	-- Wenn nichts übrig bleibt oder alles 0 Wert hat -> kein Auto-Pick
+	if not bestIndex or bestPrice <= 0 then
 		return nil
 	end
 
@@ -181,20 +276,38 @@ q:SetScript("OnEvent", function(_, event)
 	elseif event == "QUEST_COMPLETE" then
 		if not FastQuestAcceptDB.autoDeliver then return end
 
+		-- ✅ Fix 1 (neu): Ruf/Ruhm-Choices niemals automatisch auswählen/abschließen
+		if AllChoicesAreReputationOrRenown() then
+			return
+		end
+
+		-- ✅ Fix 2 (alt): Ruf-Token / 0-Wert Auswahlbelohnungen niemals automatisch auswählen
+		if ChoicesAreAllZeroValue() then
+			return
+		end
+
+		-- ✅ Optional: "nur Ruf" Quests nicht auto-abschließen
+		if QuestHasNoTangibleRewards() then
+			return
+		end
+
 		local numChoices = GetNumQuestChoices() or 0
 
-		-- Wenn es mehrere Auswahlbelohnungen gibt:
-		if numChoices > 1 and FastQuestAcceptDB.autoBestReward then
+		-- Wenn es Auswahlbelohnungen gibt und "beste Belohnung" aktiv ist:
+		if numChoices >= 1 and FastQuestAcceptDB.autoBestReward then
 			local bestIndex = GetBestRewardChoiceIndex()
 			if bestIndex then
 				GetQuestReward(bestIndex)
 			else
-				-- kein Auto-Pick (z.B. Ruf-Token/0 Wert) -> Spieler wählt selbst
+				-- kein Auto-Pick (z.B. Ruf/Ruhm oder 0 Wert) -> Spieler wählt selbst
 				return
 			end
 		else
-			-- 0 oder 1 Choice: normales Auto-Abgeben
-			-- (Wenn 0 Choices, index 1 ist korrekt um die Quest abzuschließen)
+			-- 0 Choices: normales Auto-Abgeben (Index 1 schließt die Quest ab)
+			-- 1+ Choices + autoBestReward AUS: hier NICHT auto, wenn Ruf/Ruhm dabei sein könnte
+			if numChoices >= 1 then
+				return
+			end
 			GetQuestReward(1)
 		end
 

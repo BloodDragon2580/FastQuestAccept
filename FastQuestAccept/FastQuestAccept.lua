@@ -276,38 +276,26 @@ q:SetScript("OnEvent", function(_, event)
 	elseif event == "QUEST_COMPLETE" then
 		if not FastQuestAcceptDB.autoDeliver then return end
 
-		-- ✅ Fix 1 (neu): Ruf/Ruhm-Choices niemals automatisch auswählen/abschließen
-		if AllChoicesAreReputationOrRenown() then
-			return
-		end
-
-		-- ✅ Fix 2 (alt): Ruf-Token / 0-Wert Auswahlbelohnungen niemals automatisch auswählen
-		if ChoicesAreAllZeroValue() then
-			return
-		end
-
-		-- ✅ Optional: "nur Ruf" Quests nicht auto-abschließen
-		if QuestHasNoTangibleRewards() then
-			return
-		end
-
 		local numChoices = GetNumQuestChoices() or 0
 
-		-- Wenn es Auswahlbelohnungen gibt und "beste Belohnung" aktiv ist:
-		if numChoices >= 1 and FastQuestAcceptDB.autoBestReward then
-			local bestIndex = GetBestRewardChoiceIndex()
-			if bestIndex then
-				GetQuestReward(bestIndex)
+		-- Wenn es Auswahlbelohnungen gibt:
+		if numChoices > 0 then
+			-- Ruf/Ruhm-Choices niemals automatisch auswählen/abschließen
+			if AllChoicesAreReputationOrRenown() then
+				return
+			end
+
+			-- Nur dann automatisch wählen, wenn "beste Belohnung" aktiv ist
+			if FastQuestAcceptDB.autoBestReward then
+				local bestIndex = GetBestRewardChoiceIndex()
+				-- Fallback: wenn noch nichts im Cache ist oder kein "best" ermittelt werden kann,
+				-- wähle die erste Belohnung, solange es kein reiner Ruf/Ruhm-Choice ist.
+				GetQuestReward(bestIndex or 1)
 			else
-				-- kein Auto-Pick (z.B. Ruf/Ruhm oder 0 Wert) -> Spieler wählt selbst
 				return
 			end
 		else
-			-- 0 Choices: normales Auto-Abgeben (Index 1 schließt die Quest ab)
-			-- 1+ Choices + autoBestReward AUS: hier NICHT auto, wenn Ruf/Ruhm dabei sein könnte
-			if numChoices >= 1 then
-				return
-			end
+			-- Keine Auswahlbelohnungen: Quest abschließen
 			GetQuestReward(1)
 		end
 

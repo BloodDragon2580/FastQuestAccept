@@ -1,9 +1,9 @@
-## Interface: 120000
+## Interface: 120001
 ## Title:|cffd6266cFastQuestAccept|r
 ## Notes: Automatisches Annehmen und Abgeben von Quests mit lokalisierbaren Einstellungen.
 ## Notes-ruRU: Аддон, позволяющий автоматически принимать и сдавать квесты.
 ## Author: BloodDragon2580
-## Version: 4.1
+## Version: 4.2
 ## IconTexture: Interface\AddOns\FastQuestAccept\Media\Texture\logo
 ## SavedVariablesPerCharacter: FastQuestAcceptDB
 
